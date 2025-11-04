@@ -1,5 +1,7 @@
 package common
 
+const StrDelim = "\u00a0"
+
 type Repo struct {
 	Name        string `json:"name"`
 	Url         string `json:"url"`
@@ -18,4 +20,5 @@ const (
 	ActorTypeListGetter  = "list-getter"
 	ActorTypeCacheWorker = "cache-worker"
 	ActorTypeFetchWorker = "fetch-worker"
+	ActorTypeGhCloner    = "gh-cloner"
 )

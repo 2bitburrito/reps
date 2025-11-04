@@ -8,7 +8,6 @@ import (
 	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
 	"github.com/2bitburrito/reps/internal/cache"
 	"github.com/anthdm/hollywood/actor"
-	"github.com/google/uuid"
 )
 
 type cacheActor struct {
@@ -27,6 +26,7 @@ func New() actor.Producer {
 func (ca *cacheActor) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
+		ctx.Engine().Subscribe(ctx.PID())
 		log.Println("cacheActor.Started", "id", ca.id)
 		ca.ActorEngine = ctx.Engine()
 		ca.PID = ctx.PID()
@@ -41,19 +41,18 @@ func (ca *cacheActor) Receive(ctx *actor.Context) {
 }
 
 func (ca *cacheActor) Initialise(msg messages.Initialise, ctx *actor.Context) {
+	ctx.Engine().Subscribe(ctx.PID())
 	repos, err := ca.cache.GetCachedRepos(msg.Org)
 	if err != nil {
 		fmt.Println("error trying to get cached repos for:", msg.Org, err)
 		return
 	}
-
 	rootPID := ctx.Sender()
 	if rootPID == nil {
 		fmt.Println("couldn't get parentPID in cache actor")
 		return
 	}
 	ctx.Send(rootPID, messages.RepoPayload{
-		ID:    uuid.New(),
 		Org:   msg.Org,
 		Repos: repos,
 	})
@@ -68,9 +67,6 @@ func (ca *cacheActor) Finished() {
 	if ca.PID == nil {
 		slog.Error("tradeExecutor.PID is <nil>")
 	}
-
-	// // unsubscribe from price updates
-	// f.ActorEngine.Send(f.priceWatcherPID, types.Unsubscribe{Sendto: f.PID})
 
 	// poision itself
 	ca.ActorEngine.Poison(ca.PID)

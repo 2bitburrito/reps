@@ -116,7 +116,7 @@ func main() {
 	}
 
 	strPrts := strings.Split(choice, delim)
-	fmt.Println("\nCloning Repo:", strPrts[0])
+	fmt.Println("\nCloning:", strPrts[0])
 
 	ghCmd := exec.CommandContext(ctx, "git", "clone", strPrts[1])
 	out, err = ghCmd.CombinedOutput()

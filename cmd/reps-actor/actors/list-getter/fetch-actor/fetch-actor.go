@@ -1,9 +1,14 @@
 package fetchactor
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"log/slog"
 
+	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/internal/cli"
+	"github.com/2bitburrito/reps/internal/common"
 	"github.com/anthdm/hollywood/actor"
 )
 
@@ -11,6 +16,7 @@ type fetchActor struct {
 	id          string
 	ActorEngine *actor.Engine
 	PID         *actor.PID
+	ctxCancel   context.CancelFunc
 }
 
 func New() actor.Producer {
@@ -19,55 +25,56 @@ func New() actor.Producer {
 	}
 }
 
-// TODO: fix all this copypasta
-func (fa *fetchActor) Receive(c *actor.Context) {
-	switch c.Message().(type) {
+func (fa *fetchActor) Receive(ctx *actor.Context) {
+	switch msg := ctx.Message().(type) {
 	case actor.Started:
-		log.Println("fetchActor.Started", "id", fa.id)
-
-		// set actorEngine and PID
-		fa.ActorEngine = c.Engine()
-		fa.PID = c.PID()
-
-		// subscribe to price updates
-		// f.ActorEngine.Send(f.priceWatcherPID, types.Subscribe{Sendto: f.PID})
-
+		ctx.Engine().Subscribe(ctx.PID())
+		log.Println("fetchActor.Started", fa.id)
+		fa.ActorEngine = ctx.Engine()
+		fa.PID = ctx.PID()
 	case actor.Stopped:
-		log.Println("tradeExecutor.Stopped", "id", fa.id)
-		// Clean up here
-
-		// case types.PriceUpdate:
-		// 	// update the price
-		// 	f.processUpdate(msg)
-		//
-		// case types.TradeInfoRequest:
-		// 	slog.Info("tradeExecutor.TradeInfoRequest", "id", f.id, "wallet", f.wallet)
-		//
-		// 	// handle the request
-		// 	f.handleTradeInfoRequest(c)
-
-		// case types.CancelOrderRequest:
-		// 	slog.Info("tradeExecutor.CancelOrderRequest", "id", f.id, "wallet", f.wallet)
-		//
-		// 	// update status
-		// 	f.status = "cancelled"
-		//
-		// 	// stop the executor
+		log.Println("fetchActor.Stopped", fa.id)
+		fa.Finished()
+	case messages.Initialise:
+		repos, err := fa.initialize(msg)
+		if err != nil {
+			ctx.Engine().BroadcastEvent(messages.Failure{
+				Source:  *ctx.PID(),
+				Message: err.Error(),
+			})
+			return
+		}
+		ctx.Engine().BroadcastEvent(messages.RepoPayload{
+			Org:   msg.Org,
+			Repos: repos,
+		})
+	case messages.FetchRepo:
+		if fa.ctxCancel != nil {
+			fmt.Println("cancelling gh fetch")
+			fa.ctxCancel()
+			fa.ctxCancel = nil
+		}
 		fa.Finished()
 	}
 }
+func (fa *fetchActor) initialize(msg messages.Initialise) ([]common.Repo, error) {
+	ctxWCancel, cancel := context.WithCancel(context.Background())
+	fa.ctxCancel = cancel
+	return cli.GetReposFromGH(msg.Org, ctxWCancel)
+}
+
 func (fa *fetchActor) Finished() {
 	// make sure ActorEngine and PID are set
 	if fa.ActorEngine == nil {
-		slog.Error("tradeExecutor.actorEngine is <nil>")
+		slog.Error("fetchActor.actorEngine is <nil>")
 	}
 	if fa.PID == nil {
-		slog.Error("tradeExecutor.PID is <nil>")
+		slog.Error("fetchActor.PID is <nil>")
 	}
-
-	// // unsubscribe from price updates
-	// f.ActorEngine.Send(f.priceWatcherPID, types.Unsubscribe{Sendto: f.PID})
-
-	// poision itself
+	if fa.ctxCancel != nil {
+		fa.ctxCancel()
+		fa.ctxCancel = nil
+	}
+	// poision self
 	fa.ActorEngine.Poison(fa.PID)
 }

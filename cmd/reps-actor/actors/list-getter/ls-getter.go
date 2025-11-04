@@ -27,38 +27,14 @@ func New() actor.Producer {
 func (lg *listGetterActor) Receive(ctx *actor.Context) {
 	switch ctx.Message().(type) {
 	case actor.Started:
+		ctx.Engine().Subscribe(ctx.PID())
 		log.Println("listgetter.Started", "id", lg.id)
-
-		// set actorEngine and PID
 		lg.ActorEngine = ctx.Engine()
 		lg.PID = ctx.PID()
-
 		lg.spawnChildren(ctx)
-
-		// subscribe to price updates
-		// lg.ActorEngine.Send(lg.priceWatcherPID, types.Subscribe{Sendto: lg.PID})
-
 	case actor.Stopped:
-		slog.Info("tradeExecutor.Stopped", "id", lg.id)
+		slog.Info("listgetter.Stopped", "id", lg.id)
 		// Clean up here
-
-		// case types.PriceUpdate:
-		// 	// update the price
-		// 	lg.processUpdate(msg)
-		//
-		// case types.TradeInfoRequest:
-		// 	slog.Info("tradeExecutor.TradeInfoRequest", "id", lg.id, "wallet", lg.wallet)
-		//
-		// 	// handle the request
-		// 	lg.handleTradeInfoRequest(c)
-
-		// case types.CancelOrderRequest:
-		// 	slog.Info("tradeExecutor.CancelOrderRequest", "id", lg.id, "wallet", lg.wallet)
-		//
-		// 	// update status
-		// 	lg.status = "cancelled"
-		//
-		// 	// stop the executor
 		lg.Finished()
 	}
 }
@@ -70,14 +46,11 @@ func (lg *listGetterActor) spawnChildren(ctx *actor.Context) {
 func (lg *listGetterActor) Finished() {
 	// make sure ActorEngine and PID are set
 	if lg.ActorEngine == nil {
-		slog.Error("tradeExecutor.actorEngine is <nil>")
+		slog.Error("listgetter.actorEngine is <nil>")
 	}
 	if lg.PID == nil {
-		slog.Error("tradeExecutor.PID is <nil>")
+		slog.Error("listgetter.PID is <nil>")
 	}
-
-	// // unsubscribe from price updates
-	// lg.ActorEngine.Send(lg.priceWatcherPID, types.Unsubscribe{Sendto: lg.PID})
 
 	// poision itself
 	lg.ActorEngine.Poison(lg.PID)
