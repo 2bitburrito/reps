@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
-	"errors"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,12 +19,14 @@ type Cache struct {
 
 func NewCache() *Cache {
 	c := &Cache{
-		set:   map[string]struct{}{},
+		set:   map[string]struct{}{}, // set to store all repo names in cache
 		Repos: []common.Repo{},
 	}
 	return c
 }
 
+// GetCachedRepos takes in an org string and gets all cached json
+// stored in ~/.cache/reps/<org-name>.json
 func (c *Cache) GetCachedRepos(org string) ([]common.Repo, error) {
 	dirPath, err := getCachePath()
 	if err != nil {
@@ -58,7 +60,7 @@ func (c *Cache) GetCachedRepos(org string) ([]common.Repo, error) {
 	}
 
 	c.Repos = cachedRepos[:]
-	c.setCacheSet(cachedRepos)
+	go c.setCacheSet(cachedRepos)
 	return cachedRepos, nil
 }
 
@@ -93,12 +95,7 @@ func getCachePath() (string, error) {
 
 	err = os.MkdirAll(dirPath, 0700)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			fmt.Println("couldn't create file structure for caching...", err)
-			return "", err
-		} else {
-			return "", err
-		}
+		return "", err
 	}
 	return dirPath, nil
 }

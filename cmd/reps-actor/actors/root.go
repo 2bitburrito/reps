@@ -1,0 +1,67 @@
+package root
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/2bitburrito/reps/cmd/reps-actor/actors/fzf"
+	listgetter "github.com/2bitburrito/reps/cmd/reps-actor/actors/list-getter"
+	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/internal/cli"
+	"github.com/2bitburrito/reps/internal/common"
+	"github.com/anthdm/hollywood/actor"
+	"github.com/google/uuid"
+)
+
+type actorEngine struct {
+	id            string
+	Org           string
+	ActorEngine   *actor.Engine
+	PID           *actor.PID
+	listGetterPID *actor.PID
+	fzfActorPID   *actor.PID
+}
+
+func New(org string) actor.Producer {
+	return func() actor.Receiver {
+		return &actorEngine{Org: org}
+	}
+}
+
+func (ae *actorEngine) Receive(ctx *actor.Context) {
+	switch msg := ctx.Message().(type) {
+	case actor.Initialized:
+		log.Println("engine.init")
+		err := ae.initialize()
+		if err != nil {
+			fmt.Printf("Incorrect binaries installed: %v\n", err)
+			fmt.Println("Please ensure you have installed both: 'fzf' & 'gh'")
+			fmt.Println("Then run 'gh auth login'.")
+			return
+		}
+		ae.spawnWorkers(ctx)
+	case actor.Started:
+		log.Println("root.started", "id", ae.id)
+
+		ctx.Engine().BroadcastEvent(messages.Initialise{
+			ID:  uuid.New(),
+			Org: ae.Org,
+		})
+	case actor.Stopped:
+		log.Println("engine.stopped")
+	case messages.RepoPayload:
+		ctx.Send(ae.fzfActorPID, msg)
+	}
+}
+func (ae *actorEngine) initialize() error {
+	err := cli.CheckInstalledBinaries()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ae *actorEngine) spawnWorkers(ctx *actor.Context) {
+	ae.listGetterPID = ctx.SpawnChild(listgetter.New(), common.ActorTypeListGetter, actor.WithID(common.ActorTypeListGetter))
+	ae.fzfActorPID = ctx.SpawnChild(fzf.New(), common.ActorTypeFzfWorker, actor.WithID(common.ActorTypeFzfWorker))
+}
