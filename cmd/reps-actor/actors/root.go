@@ -53,11 +53,20 @@ func (ae *actorEngine) Receive(ctx *actor.Context) {
 			Org: ae.Org,
 		})
 	case actor.Stopped:
-		log.Println("engine.stopped")
-	case messages.RepoPayload:
+	case messages.RepoPayloadFromFetch:
+		ctx.Send(ae.fzfActorPID, msg)
+	case messages.RepoPayloadFromCache:
 		ctx.Send(ae.fzfActorPID, msg)
 	case messages.FetchRepo:
 		ctx.Send(ae.ghClonerPID, msg)
+	case messages.FetchesComplete:
+		ctx.Send(ae.fzfActorPID, msg)
+	case messages.Shutdown:
+		ctx.Engine().Poison(ae.fzfActorPID)
+		ctx.Engine().Poison(ae.ghClonerPID)
+		ctx.Engine().Poison(ae.listGetterPID)
+
+		ctx.Engine().Poison(ctx.PID())
 	}
 }
 func (ae *actorEngine) initialize() error {

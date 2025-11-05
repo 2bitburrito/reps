@@ -68,7 +68,7 @@ func main() {
 		"--delimiter="+delim,
 		"--preview", "echo URL: {2}\n\necho Description: {3} ",
 		"--style", "full",
-		"--header", "Select a repo to clone! - If this is the first run it could take a while to fetch",
+		"--header", "Select a repo to clone - If this is the first run it could take a while to fetch",
 	)
 
 	pipeReader, pipeWriter := io.Pipe()

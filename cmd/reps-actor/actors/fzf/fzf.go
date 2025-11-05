@@ -17,7 +17,8 @@ type fzfActor struct {
 	id          string
 	ActorEngine *actor.Engine
 	PID         *actor.PID
-	pipeWriter  io.Writer
+	pipeReader  *io.PipeReader
+	pipeWriter  *io.PipeWriter
 }
 
 func New() actor.Producer {
@@ -34,13 +35,17 @@ func (f *fzfActor) Receive(ctx *actor.Context) {
 		f.ActorEngine = ctx.Engine()
 		f.PID = ctx.PID()
 	case actor.Stopped:
-		// Clean up here
-		log.Println("fzfActor.Stopped", f.id)
 		f.Finished()
 	case messages.Initialise:
 		go f.run(ctx)
-	case messages.RepoPayload:
+	case messages.RepoMessage:
 		f.pipeMessageToFfz(msg, ctx)
+	case messages.FetchesComplete:
+		// Signal to fzf that no more data is coming
+		if f.pipeWriter != nil {
+			f.pipeWriter.Close()
+			f.pipeWriter = nil
+		}
 	}
 }
 func (f *fzfActor) run(ctx *actor.Context) {
@@ -50,13 +55,15 @@ func (f *fzfActor) run(ctx *actor.Context) {
 		"--delimiter="+common.StrDelim,
 		"--preview", "echo URL: {2}\n\necho Description: {3} ",
 		"--style", "full",
-		"--header", "Select a repo to clone! - If this is the first run it could take a while to fetch",
+		"--header", "Select a repo to clone.",
 	)
 
 	pipeReader, pipeWriter := io.Pipe()
 	fzfCmd.Stdin = pipeReader
 	f.pipeWriter = pipeWriter
-	out, err := fzfCmd.CombinedOutput()
+	f.pipeReader = pipeReader
+
+	stdout, err := fzfCmd.StdoutPipe()
 	if err != nil {
 		ctx.Engine().BroadcastEvent(messages.Failure{
 			Source:  *ctx.PID(),
@@ -64,6 +71,33 @@ func (f *fzfActor) run(ctx *actor.Context) {
 		})
 		return
 	}
+
+	err = fzfCmd.Start()
+	if err != nil {
+		ctx.Engine().BroadcastEvent(messages.Failure{
+			Source:  *ctx.PID(),
+			Message: err.Error(),
+		})
+		return
+	}
+
+	out, err := io.ReadAll(stdout)
+	if err != nil {
+		ctx.Engine().BroadcastEvent(messages.Failure{
+			Source:  *ctx.PID(),
+			Message: err.Error(),
+		})
+		return
+	}
+	err = fzfCmd.Wait()
+	if err != nil {
+		ctx.Engine().BroadcastEvent(messages.Failure{
+			Source:  *ctx.PID(),
+			Message: err.Error(),
+		})
+		return
+	}
+
 	choice := strings.TrimSpace(string(out))
 	if choice == "" {
 		fmt.Println("No selection made.")
@@ -76,8 +110,12 @@ func (f *fzfActor) run(ctx *actor.Context) {
 
 }
 
-func (f *fzfActor) pipeMessageToFfz(msg messages.RepoPayload, ctx *actor.Context) {
-	strReader := common.FormatRepoList(msg.Repos)
+func (f *fzfActor) pipeMessageToFfz(msg messages.RepoMessage, ctx *actor.Context) {
+	if f.pipeWriter == nil {
+		fmt.Println("Warning: pipeWriter is nil, skipping")
+		return
+	}
+	strReader := common.FormatRepoList(msg.GetRepos())
 	_, err := io.Copy(f.pipeWriter, strReader)
 	if err != nil {
 		errMsg := fmt.Sprintf("error while piping into fzf reader: %v", err)
@@ -92,6 +130,11 @@ func (f *fzfActor) pipeMessageToFfz(msg messages.RepoPayload, ctx *actor.Context
 }
 
 func (f *fzfActor) Finished() {
+	// Unsubscribe first to prevent deadletter buildup
+	if f.ActorEngine != nil && f.PID != nil {
+		f.ActorEngine.Unsubscribe(f.PID)
+	}
+
 	// make sure ActorEngine and PID are set
 	if f.ActorEngine == nil {
 		slog.Error("fzfActor.actorEngine is <nil>")

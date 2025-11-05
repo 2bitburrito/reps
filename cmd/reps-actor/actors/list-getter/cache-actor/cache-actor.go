@@ -12,6 +12,7 @@ import (
 
 type cacheActor struct {
 	id          string
+	org         string
 	cache       *cache.Cache
 	ActorEngine *actor.Engine
 	PID         *actor.PID
@@ -33,39 +34,51 @@ func (ca *cacheActor) Receive(ctx *actor.Context) {
 		ca.cache = cache.NewCache()
 	case actor.Stopped:
 		// Clean up here
-		log.Println("cacheActor.Stopped", "id", ca.id)
 		ca.Finished()
 	case messages.Initialise:
+		ca.org = msg.Org
 		ca.Initialise(msg, ctx)
+	case messages.CheckCache:
+		freshRepos := ca.cache.CheckCacheSet(msg.Repos)
+		ctx.Send(ctx.Parent(), messages.RepoPayloadFromFetch{
+			Repos: freshRepos,
+		})
+		err := ca.cache.SaveRepoToCache(ca.org, msg.Repos)
+		if err != nil {
+			fmt.Println("error saving repo to cache:", err)
+
+		}
 	}
 }
 
 func (ca *cacheActor) Initialise(msg messages.Initialise, ctx *actor.Context) {
-	ctx.Engine().Subscribe(ctx.PID())
-	repos, err := ca.cache.GetCachedRepos(msg.Org)
+	repos, err := ca.cache.GetCachedRepos(ca.org)
 	if err != nil {
 		fmt.Println("error trying to get cached repos for:", msg.Org, err)
 		return
 	}
-	rootPID := ctx.Sender()
+	rootPID := ctx.Parent()
 	if rootPID == nil {
 		fmt.Println("couldn't get parentPID in cache actor")
 		return
 	}
-	ctx.Send(rootPID, messages.RepoPayload{
-		Org:   msg.Org,
+	ctx.Send(rootPID, messages.RepoPayloadFromCache{
 		Repos: repos,
 	})
-
 }
 
 func (ca *cacheActor) Finished() {
+	// Unsubscribe first to prevent deadletter buildup
+	if ca.ActorEngine != nil && ca.PID != nil {
+		ca.ActorEngine.Unsubscribe(ca.PID)
+	}
+
 	// make sure ActorEngine and PID are set
 	if ca.ActorEngine == nil {
-		slog.Error("tradeExecutor.actorEngine is <nil>")
+		slog.Error("cacheActor.actorEngine is <nil>")
 	}
 	if ca.PID == nil {
-		slog.Error("tradeExecutor.PID is <nil>")
+		slog.Error("cacheActor.PID is <nil>")
 	}
 
 	// poision itself

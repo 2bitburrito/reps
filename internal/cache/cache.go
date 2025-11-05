@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"encoding/json"
 
 	"fmt"
@@ -60,11 +59,11 @@ func (c *Cache) GetCachedRepos(org string) ([]common.Repo, error) {
 	}
 
 	c.Repos = cachedRepos[:]
-	go c.setCacheSet(cachedRepos)
+	c.setCacheSet(cachedRepos)
 	return cachedRepos, nil
 }
 
-func (c *Cache) SaveRepoToCache(ctx context.Context, org string, repos []common.Repo) error {
+func (c *Cache) SaveRepoToCache(org string, repos []common.Repo) error {
 	dirPath, err := getCachePath()
 	if err != nil {
 		fmt.Println("couldn't get cache path: ", err)
@@ -84,8 +83,8 @@ func (c *Cache) SaveRepoToCache(ctx context.Context, org string, repos []common.
 	return nil
 }
 
+// saves at: "~/.cache/reps/<org>.json"
 func getCachePath() (string, error) {
-	// "~/.cache/reps/<org>.json"
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
@@ -106,8 +105,9 @@ func (c *Cache) setCacheSet(repos []common.Repo) {
 	}
 }
 
+// Returns the repos not already in the cache
 func (c *Cache) CheckCacheSet(repos []common.Repo) []common.Repo {
-	var newRepos []common.Repo
+	newRepos := make([]common.Repo, 0, 64)
 
 	for _, repo := range repos {
 		_, exists := c.set[repo.Name]

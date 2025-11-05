@@ -33,12 +33,12 @@ func (gc *GhCloner) Receive(ctx *actor.Context) {
 		gc.PID = ctx.PID()
 	case actor.Stopped:
 		// Clean up here
-		log.Println("ghcloner.Stopped", "id", gc.id)
 		gc.Finished()
 	case messages.FetchRepo:
 		fetchCtx, fetchCancel := context.WithCancel(context.Background())
 		gc.ctxCancel = &fetchCancel
 		gc.fetchRepo(msg, fetchCtx)
+		ctx.Engine().BroadcastEvent(messages.Shutdown{})
 	}
 }
 
@@ -58,6 +58,11 @@ func (gc *GhCloner) fetchRepo(msg messages.FetchRepo, ctx context.Context) {
 }
 
 func (gc *GhCloner) Finished() {
+	// Unsubscribe first to prevent deadletter buildup
+	if gc.ActorEngine != nil && gc.PID != nil {
+		gc.ActorEngine.Unsubscribe(gc.PID)
+	}
+
 	// make sure ActorEngine and PID are set
 	if gc.ActorEngine == nil {
 		slog.Error("ghcloner.actorEngine is <nil>")
@@ -65,8 +70,11 @@ func (gc *GhCloner) Finished() {
 	if gc.PID == nil {
 		slog.Error("ghcloner.PID is <nil>")
 	}
-	cancel := *gc.ctxCancel
-	cancel()
+
+	if gc.ctxCancel != nil {
+		cancel := *gc.ctxCancel
+		cancel()
+	}
 
 	// poision itself
 	gc.ActorEngine.Poison(gc.PID)

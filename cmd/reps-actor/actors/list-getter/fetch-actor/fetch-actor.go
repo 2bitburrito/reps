@@ -8,7 +8,6 @@ import (
 
 	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
 	"github.com/2bitburrito/reps/internal/cli"
-	"github.com/2bitburrito/reps/internal/common"
 	"github.com/anthdm/hollywood/actor"
 )
 
@@ -33,21 +32,10 @@ func (fa *fetchActor) Receive(ctx *actor.Context) {
 		fa.ActorEngine = ctx.Engine()
 		fa.PID = ctx.PID()
 	case actor.Stopped:
-		log.Println("fetchActor.Stopped", fa.id)
 		fa.Finished()
 	case messages.Initialise:
-		repos, err := fa.initialize(msg)
-		if err != nil {
-			ctx.Engine().BroadcastEvent(messages.Failure{
-				Source:  *ctx.PID(),
-				Message: err.Error(),
-			})
-			return
-		}
-		ctx.Engine().BroadcastEvent(messages.RepoPayload{
-			Org:   msg.Org,
-			Repos: repos,
-		})
+		// Start streaming repos asynchronously
+		fa.initializeFetch(msg, ctx)
 	case messages.FetchRepo:
 		if fa.ctxCancel != nil {
 			fmt.Println("cancelling gh fetch")
@@ -57,13 +45,32 @@ func (fa *fetchActor) Receive(ctx *actor.Context) {
 		fa.Finished()
 	}
 }
-func (fa *fetchActor) initialize(msg messages.Initialise) ([]common.Repo, error) {
+
+func (fa *fetchActor) initializeFetch(msg messages.Initialise, ctx *actor.Context) {
 	ctxWCancel, cancel := context.WithCancel(context.Background())
 	fa.ctxCancel = cancel
-	return cli.GetReposFromGH(msg.Org, ctxWCancel)
+
+	// Run in goroutine to avoid blocking the actor
+	go func() {
+		repos, err := cli.GetReposFromGH(msg.Org, ctxWCancel)
+		if err != nil && err != context.Canceled {
+			ctx.Engine().BroadcastEvent(messages.Failure{
+				Source:  *ctx.PID(),
+				Message: err.Error(),
+			})
+		}
+		ctx.Send(ctx.Parent(), messages.CheckCache{
+			Repos: repos,
+		})
+	}()
 }
 
 func (fa *fetchActor) Finished() {
+	// Unsubscribe first to prevent deadletter buildup
+	if fa.ActorEngine != nil && fa.PID != nil {
+		fa.ActorEngine.Unsubscribe(fa.PID)
+	}
+
 	// make sure ActorEngine and PID are set
 	if fa.ActorEngine == nil {
 		slog.Error("fetchActor.actorEngine is <nil>")

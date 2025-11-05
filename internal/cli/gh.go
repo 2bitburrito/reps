@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os/exec"
 
 	"github.com/2bitburrito/reps/internal/common"
@@ -12,10 +13,15 @@ import (
 func GetReposFromGH(org string, ctx context.Context) ([]common.Repo, error) {
 	fmt.Println("Getting all repos...")
 	cmd := exec.CommandContext(ctx, "gh", "repo", "list", org, "--limit", "10000", "--json", "name,description,url", "--no-archived")
-	out, err := cmd.CombinedOutput()
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Printf("failed to run gh command: %v: %v", err, string(out))
 		return nil, err
+	}
+	err = cmd.Start()
+	out, err := io.ReadAll(stdout)
+	if err != nil {
+		errMsg := fmt.Errorf("failed to run gh command: %v: %v", err, string(out))
+		return nil, errMsg
 	}
 
 	var repos []common.Repo
