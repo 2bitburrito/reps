@@ -2,7 +2,6 @@ package listgetter
 
 import (
 	"fmt"
-	"log"
 
 	cacheactor "github.com/2bitburrito/reps/cmd/reps-actor/actors/list-getter/cache-actor"
 	fetchactor "github.com/2bitburrito/reps/cmd/reps-actor/actors/list-getter/fetch-actor"
@@ -30,7 +29,6 @@ func (lg *listGetterActor) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
 		ctx.Engine().Subscribe(ctx.PID())
-		log.Println("listgetter.Started", "id", lg.id)
 		lg.ActorEngine = ctx.Engine()
 		lg.PID = ctx.PID()
 		lg.spawnChildren(ctx)
@@ -46,6 +44,9 @@ func (lg *listGetterActor) Receive(ctx *actor.Context) {
 	case messages.RepoPayloadFromCache:
 		// pass up to root
 		lg.receiveRepo(ctx, msg)
+	case messages.FetchRepo:
+		// User made a selection, forward to fetch actor to cancel ongoing fetch
+		ctx.Send(lg.fetchActorPID, msg)
 	case messages.Shutdown:
 		lg.poisonChildren(ctx)
 	}
@@ -82,6 +83,4 @@ func (lg *listGetterActor) Finished() {
 		fmt.Println("listgetter.PID is <nil>")
 	}
 
-	// poision itself
-	lg.ActorEngine.Poison(lg.PID)
 }

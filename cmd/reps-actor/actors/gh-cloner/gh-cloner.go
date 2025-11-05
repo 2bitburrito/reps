@@ -3,8 +3,6 @@ package ghcloner
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -30,7 +28,6 @@ func (gc *GhCloner) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
 		ctx.Engine().Subscribe(ctx.PID())
-		log.Println("ghcloner.Started", "id", gc.id)
 		gc.ActorEngine = ctx.Engine()
 		gc.PID = ctx.PID()
 	case actor.Stopped:
@@ -46,23 +43,26 @@ func (gc *GhCloner) Receive(ctx *actor.Context) {
 
 func (gc *GhCloner) fetchRepo(msg messages.FetchRepo, ctx context.Context) error {
 	choice := msg.RepoChoice
-	fmt.Println("\nCloning Repo:", choice[0])
 
 	cmd := exec.CommandContext(ctx, "git", "clone", choice[1])
-	stdout, err := cmd.StdoutPipe()
+
+	// Directly connect to stdout/stderr to avoid output capture issues
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run() // Use Run() instead of Start() to wait for completion
+
+	// Always cancel the context to clean up the watchCtx goroutine
+	if gc.ctxCancel != nil {
+		cancel := *gc.ctxCancel
+		cancel()
+		gc.ctxCancel = nil
+	}
+
 	if err != nil {
+		fmt.Printf("Git clone failed: %v\n", err)
 		return err
 	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = cmd.Start()
-	if err != nil {
-		return err
-	}
-	go io.Copy(os.Stdout, stdout)
-	go io.Copy(os.Stderr, stderr)
 	return nil
 }
 
@@ -83,8 +83,6 @@ func (gc *GhCloner) Finished() {
 	if gc.ctxCancel != nil {
 		cancel := *gc.ctxCancel
 		cancel()
+		gc.ctxCancel = nil
 	}
-
-	// poision itself
-	gc.ActorEngine.Poison(gc.PID)
 }

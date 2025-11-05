@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-
 	e, err := actor.NewEngine(actor.NewEngineConfig())
 	if err != nil {
 		panic(err)
@@ -21,16 +20,15 @@ func main() {
 	args := os.Args[1:]
 	org := cli.GetOrg(args)
 
-	// Start the root
 	rootPID := e.Spawn(
 		root.New(org),
 		common.ActorTypeRoot, actor.WithID(common.IDRoot),
 	)
 
-	// Graceful shutdown chanel and gofunc:
+	// Graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	<-sigChan
 
+	<-sigChan
 	e.Poison(rootPID)
 }

@@ -2,7 +2,6 @@ package cacheactor
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 
 	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
@@ -28,7 +27,6 @@ func (ca *cacheActor) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
 		ctx.Engine().Subscribe(ctx.PID())
-		log.Println("cacheActor.Started", "id", ca.id)
 		ca.ActorEngine = ctx.Engine()
 		ca.PID = ctx.PID()
 		ca.cache = cache.NewCache()
@@ -75,7 +73,4 @@ func (ca *cacheActor) Finished() {
 	if ca.PID == nil {
 		slog.Error("cacheActor.PID is <nil>")
 	}
-
-	// poision itself
-	ca.ActorEngine.Poison(ca.PID)
 }

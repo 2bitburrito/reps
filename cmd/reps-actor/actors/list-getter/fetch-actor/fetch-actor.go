@@ -2,8 +2,6 @@ package fetchactor
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"log/slog"
 
 	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
@@ -28,7 +26,6 @@ func (fa *fetchActor) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Started:
 		ctx.Engine().Subscribe(ctx.PID())
-		log.Println("fetchActor.Started", fa.id)
 		fa.ActorEngine = ctx.Engine()
 		fa.PID = ctx.PID()
 	case actor.Stopped:
@@ -38,14 +35,11 @@ func (fa *fetchActor) Receive(ctx *actor.Context) {
 		fa.initializeFetch(msg, ctx)
 	case messages.FetchRepo:
 		if fa.ctxCancel != nil {
-			fmt.Println("cancelling gh fetch")
 			fa.ctxCancel()
 			fa.ctxCancel = nil
 		}
-		fa.Finished()
 	case messages.Shutdown:
 		if fa.ctxCancel != nil {
-			log.Println("fetchActor: cancelling fetch due to shutdown")
 			fa.ctxCancel()
 			fa.ctxCancel = nil
 		}
@@ -56,7 +50,6 @@ func (fa *fetchActor) initializeFetch(msg messages.Initialise, ctx *actor.Contex
 	ctxWCancel, cancel := context.WithCancel(context.Background())
 	fa.ctxCancel = cancel
 
-	// Run in goroutine to avoid blocking the actor
 	go func() {
 		repos, err := cli.GetReposFromGH(msg.Org, ctxWCancel)
 		if err != nil && err != context.Canceled {
@@ -72,7 +65,6 @@ func (fa *fetchActor) initializeFetch(msg messages.Initialise, ctx *actor.Contex
 }
 
 func (fa *fetchActor) Finished() {
-	// Unsubscribe first to prevent deadletter buildup
 	if fa.ActorEngine != nil && fa.PID != nil {
 		fa.ActorEngine.Unsubscribe(fa.PID)
 	}
@@ -88,6 +80,4 @@ func (fa *fetchActor) Finished() {
 		fa.ctxCancel()
 		fa.ctxCancel = nil
 	}
-	// poision self
-	fa.ActorEngine.Poison(fa.PID)
 }

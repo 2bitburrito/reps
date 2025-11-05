@@ -2,7 +2,7 @@ package root
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	"github.com/2bitburrito/reps/cmd/reps-actor/actors/fzf"
 	ghcloner "github.com/2bitburrito/reps/cmd/reps-actor/actors/gh-cloner"
@@ -32,7 +32,6 @@ func New(org string) actor.Producer {
 func (ae *actorEngine) Receive(ctx *actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case actor.Initialized:
-		log.Println("engine.init")
 		err := ae.initialize()
 		if err != nil {
 			fmt.Printf("Incorrect binaries installed: %v\n", err)
@@ -47,7 +46,6 @@ func (ae *actorEngine) Receive(ctx *actor.Context) {
 		ae.spawnWorkers(ctx)
 	case actor.Started:
 		ctx.Engine().Subscribe(ctx.PID())
-		log.Println("root.started", "id", ae.id)
 
 		ctx.Engine().BroadcastEvent(messages.Initialise{
 			Org: ae.Org,
@@ -58,6 +56,9 @@ func (ae *actorEngine) Receive(ctx *actor.Context) {
 	case messages.RepoPayloadFromCache:
 		ctx.Send(ae.fzfActorPID, msg)
 	case messages.FetchRepo:
+		// Send to listgetter first to cancel any ongoing fetch
+		ctx.Send(ae.listGetterPID, msg)
+		// Then send to ghcloner to start the clone
 		ctx.Send(ae.ghClonerPID, msg)
 	case messages.FetchesComplete:
 		ctx.Send(ae.fzfActorPID, msg)
@@ -67,6 +68,7 @@ func (ae *actorEngine) Receive(ctx *actor.Context) {
 		ctx.Engine().Poison(ae.listGetterPID)
 
 		ctx.Engine().Poison(ctx.PID())
+		os.Exit(0)
 	}
 }
 func (ae *actorEngine) initialize() error {
