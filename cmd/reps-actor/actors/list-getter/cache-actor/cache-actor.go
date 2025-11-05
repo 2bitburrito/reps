@@ -57,12 +57,7 @@ func (ca *cacheActor) Initialise(msg messages.Initialise, ctx *actor.Context) {
 		fmt.Println("error trying to get cached repos for:", msg.Org, err)
 		return
 	}
-	rootPID := ctx.Parent()
-	if rootPID == nil {
-		fmt.Println("couldn't get parentPID in cache actor")
-		return
-	}
-	ctx.Send(rootPID, messages.RepoPayloadFromCache{
+	ctx.Send(ctx.Parent(), messages.RepoPayloadFromCache{
 		Repos: repos,
 	})
 }

@@ -17,10 +17,12 @@ func GetReposFromGH(org string, ctx context.Context) ([]common.Repo, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start gh command: %v", err)
+	}
 	out, err := io.ReadAll(stdout)
 	if err != nil {
-		errMsg := fmt.Errorf("failed to run gh command: %v: %v", err, string(out))
+		errMsg := fmt.Errorf("failed to read gh command output: %v", err)
 		return nil, errMsg
 	}
 

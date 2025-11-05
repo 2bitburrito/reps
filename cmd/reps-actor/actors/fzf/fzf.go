@@ -56,6 +56,7 @@ func (f *fzfActor) run(ctx *actor.Context) {
 		"--preview", "echo URL: {2}\n\necho Description: {3} ",
 		"--style", "full",
 		"--header", "Select a repo to clone.",
+		"--tmux",
 	)
 
 	pipeReader, pipeWriter := io.Pipe()

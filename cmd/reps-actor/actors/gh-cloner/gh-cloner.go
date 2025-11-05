@@ -3,8 +3,10 @@ package ghcloner
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
+	"os"
 	"os/exec"
 
 	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
@@ -42,19 +44,26 @@ func (gc *GhCloner) Receive(ctx *actor.Context) {
 	}
 }
 
-func (gc *GhCloner) fetchRepo(msg messages.FetchRepo, ctx context.Context) {
+func (gc *GhCloner) fetchRepo(msg messages.FetchRepo, ctx context.Context) error {
 	choice := msg.RepoChoice
 	fmt.Println("\nCloning Repo:", choice[0])
 
-	ghCmd := exec.CommandContext(ctx, "git", "clone", choice[1])
-	// TODO: Figure out how to pipe output for multi line outputs:
-	out, err := ghCmd.CombinedOutput()
+	cmd := exec.CommandContext(ctx, "git", "clone", choice[1])
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(string(out))
-		fmt.Printf("failed to run git clone: %v: %s\n", err, out)
-		return
+		return err
 	}
-	fmt.Println(string(out))
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	err = cmd.Start()
+	if err != nil {
+		return err
+	}
+	go io.Copy(os.Stdout, stdout)
+	go io.Copy(os.Stderr, stderr)
+	return nil
 }
 
 func (gc *GhCloner) Finished() {

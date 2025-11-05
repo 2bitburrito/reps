@@ -160,7 +160,7 @@ func getFreshReposFromGH(ctx context.Context, cancelFzf context.CancelFunc, ch c
 	}
 	newRepos := cache.CheckCacheSet(repos)
 	go func() {
-		if err = cache.SaveRepoToCache(ctx, org, repos); err != nil {
+		if err = cache.SaveRepoToCache(org, repos); err != nil {
 			fmt.Println("error caching new repo list: ", err)
 		}
 	}()

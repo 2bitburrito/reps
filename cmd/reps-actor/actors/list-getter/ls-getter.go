@@ -46,6 +46,8 @@ func (lg *listGetterActor) Receive(ctx *actor.Context) {
 	case messages.RepoPayloadFromCache:
 		// pass up to root
 		lg.receiveRepo(ctx, msg)
+	case messages.Shutdown:
+		lg.poisonChildren(ctx)
 	}
 }
 func (lg *listGetterActor) spawnChildren(ctx *actor.Context) {

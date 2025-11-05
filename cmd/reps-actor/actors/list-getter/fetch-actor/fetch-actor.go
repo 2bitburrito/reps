@@ -43,6 +43,12 @@ func (fa *fetchActor) Receive(ctx *actor.Context) {
 			fa.ctxCancel = nil
 		}
 		fa.Finished()
+	case messages.Shutdown:
+		if fa.ctxCancel != nil {
+			log.Println("fetchActor: cancelling fetch due to shutdown")
+			fa.ctxCancel()
+			fa.ctxCancel = nil
+		}
 	}
 }
 
