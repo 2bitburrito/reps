@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/cmd/reps/messages"
 	"github.com/2bitburrito/reps/internal/common"
 	"github.com/anthdm/hollywood/actor"
 )

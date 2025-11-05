@@ -3,9 +3,9 @@ package listgetter
 import (
 	"fmt"
 
-	cacheactor "github.com/2bitburrito/reps/cmd/reps-actor/actors/list-getter/cache-actor"
-	fetchactor "github.com/2bitburrito/reps/cmd/reps-actor/actors/list-getter/fetch-actor"
-	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	cacheactor "github.com/2bitburrito/reps/cmd/reps/actors/list-getter/cache-actor"
+	fetchactor "github.com/2bitburrito/reps/cmd/reps/actors/list-getter/fetch-actor"
+	"github.com/2bitburrito/reps/cmd/reps/messages"
 	"github.com/2bitburrito/reps/internal/common"
 	"github.com/anthdm/hollywood/actor"
 )

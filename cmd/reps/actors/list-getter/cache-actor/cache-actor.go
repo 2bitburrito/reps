@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/cmd/reps/messages"
 	"github.com/2bitburrito/reps/internal/cache"
 	"github.com/anthdm/hollywood/actor"
 )

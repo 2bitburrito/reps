@@ -2,9 +2,10 @@ package fetchactor
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
-	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/cmd/reps/messages"
 	"github.com/2bitburrito/reps/internal/cli"
 	"github.com/anthdm/hollywood/actor"
 )
@@ -56,6 +57,12 @@ func (fa *fetchActor) initializeFetch(msg messages.Initialise, ctx *actor.Contex
 			ctx.Engine().BroadcastEvent(messages.Failure{
 				Source:  *ctx.PID(),
 				Message: err.Error(),
+			})
+		}
+		if len(repos) == 0 {
+			ctx.Engine().BroadcastEvent(messages.Failure{
+				Source:  *ctx.PID(),
+				Message: fmt.Sprintf("Github returned no results for %s - ensure you are signed in on the correct account\n", msg.Org),
 			})
 		}
 		ctx.Send(ctx.Parent(), messages.CheckCache{

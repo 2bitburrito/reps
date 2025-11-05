@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/cmd/reps/messages"
 	"github.com/anthdm/hollywood/actor"
 )
 

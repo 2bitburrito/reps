@@ -12,8 +12,6 @@ import (
 func GetReposFromGH(org string, ctx context.Context) ([]common.Repo, error) {
 	cmd := exec.CommandContext(ctx, "gh", "repo", "list", org, "--limit", "10000", "--json", "name,description,url", "--no-archived")
 
-	// Use CombinedOutput() which properly handles context cancellation
-	// It will kill the process and return immediately when context is cancelled
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if it's a context cancellation

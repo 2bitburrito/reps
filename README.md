@@ -2,10 +2,13 @@
 A command line tool that will list all of the repos in your organisation and allow you to clone directly
 
 ### Installation
-Ensure you have installed fzf and the gh cli
 
+```bash
+go install github.com/2bitburrito/reps/cmd/reps
+```
+
+Ensure you have installed both fzf and the gh cli
 #### MacOS:
-
 ```bash
 brew install fzf
 brew install gh
@@ -23,5 +26,8 @@ gh auth login
 ### Usage
 Simply run: `reps <organisation-name>`
 
-You should see a 
+If you want to save the same org-name for reuse you can run `export DEFAULT_ORG=<organisation-name>` and reps will use that by default.
+
+Your chosen repo will clone locally to the current directory
+
 

@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	root "github.com/2bitburrito/reps/cmd/reps-actor/actors"
+	root "github.com/2bitburrito/reps/cmd/reps/actors"
 	"github.com/2bitburrito/reps/internal/cli"
 	"github.com/2bitburrito/reps/internal/common"
 	"github.com/anthdm/hollywood/actor"

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/2bitburrito/reps/cmd/reps-actor/actors/fzf"
-	ghcloner "github.com/2bitburrito/reps/cmd/reps-actor/actors/gh-cloner"
-	listgetter "github.com/2bitburrito/reps/cmd/reps-actor/actors/list-getter"
-	"github.com/2bitburrito/reps/cmd/reps-actor/messages"
+	"github.com/2bitburrito/reps/cmd/reps/actors/fzf"
+	ghcloner "github.com/2bitburrito/reps/cmd/reps/actors/gh-cloner"
+	listgetter "github.com/2bitburrito/reps/cmd/reps/actors/list-getter"
+	"github.com/2bitburrito/reps/cmd/reps/messages"
 	"github.com/2bitburrito/reps/internal/cli"
 	"github.com/2bitburrito/reps/internal/common"
 	"github.com/anthdm/hollywood/actor"
@@ -62,12 +62,12 @@ func (ae *actorEngine) Receive(ctx *actor.Context) {
 		ctx.Send(ae.ghClonerPID, msg)
 	case messages.FetchesComplete:
 		ctx.Send(ae.fzfActorPID, msg)
+	case messages.Failure:
+		ae.poisonTree(ctx)
+		fmt.Println(msg.Message)
+		os.Exit(0)
 	case messages.Shutdown:
-		ctx.Engine().Poison(ae.fzfActorPID)
-		ctx.Engine().Poison(ae.ghClonerPID)
-		ctx.Engine().Poison(ae.listGetterPID)
-
-		ctx.Engine().Poison(ctx.PID())
+		ae.poisonTree(ctx)
 		os.Exit(0)
 	}
 }
@@ -83,4 +83,12 @@ func (ae *actorEngine) spawnWorkers(ctx *actor.Context) {
 	ae.listGetterPID = ctx.SpawnChild(listgetter.New(), common.ActorTypeListGetter, actor.WithID(common.ActorTypeListGetter))
 	ae.fzfActorPID = ctx.SpawnChild(fzf.New(), common.ActorTypeFzfWorker, actor.WithID(common.ActorTypeFzfWorker))
 	ae.ghClonerPID = ctx.SpawnChild(ghcloner.New(), common.ActorTypeGhCloner, actor.WithID(common.ActorTypeGhCloner))
+}
+
+func (ae *actorEngine) poisonTree(ctx *actor.Context) {
+	ctx.Engine().Poison(ae.fzfActorPID)
+	ctx.Engine().Poison(ae.ghClonerPID)
+	ctx.Engine().Poison(ae.listGetterPID)
+
+	ctx.Engine().Poison(ctx.PID())
 }
