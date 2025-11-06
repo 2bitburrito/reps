@@ -4,7 +4,7 @@ A command line tool that will list all of the repos in your organisation and all
 ### Installation
 
 ```bash
-go install github.com/2bitburrito/reps/cmd/reps
+go install github.com/2bitburrito/reps/cmd/reps@latest
 ```
 
 Ensure you have installed both fzf and the gh cli
